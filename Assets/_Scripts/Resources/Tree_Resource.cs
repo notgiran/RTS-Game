@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Animations;
 
 public class Tree_Resource : Resource, IClickable
 {
@@ -9,6 +10,7 @@ public class Tree_Resource : Resource, IClickable
     [SerializeField] float labelHeight = 5f;
     AI_Controller aI_Controller;        // ref to Ai controller gameobject
     AI_Controller lastGatherer;         // call the last gatherer
+    GameObject gathererAssigned;
 
     public override ResourceType GetResourceType() => ResourceType.Tree;
 
@@ -20,17 +22,23 @@ public class Tree_Resource : Resource, IClickable
         {
             DestroyHpBar();
             Destroy(gameObject);
-            aI_Controller.StopNavmesh(false);
-            aI_Controller.CanMove = true;
-            aI_Controller.isGatherable = false;
-            aI_Controller.CurrentState = AI_Controller.State.Patrol;
+            lastGatherer.StopNavmesh(false);
+            lastGatherer.CanMove = true;
+            // lastGatherer.isGatherable = false;
+            lastGatherer.CurrentState = AI_Controller.State.Patrol;
+
+            HUD_Manager.Instance.WoodCount += Random.Range(3, 8);
+            gathererAssigned.GetComponent<AI_Controller>().DeletePath();
         }
     }
 
     public void Interact()
     {
-        aI_Controller.SetActivityLabel("Chopping");
-        InvokeRepeating(nameof(Collect), .5f, 1f);
+        if (gathererAssigned != null)
+        {
+            gathererAssigned.GetComponent<AI_Controller>().SetActivityLabel("Chopping");
+            InvokeRepeating(nameof(Collect), 1f, 1f);
+        }
     }
 
     public override void Collect()
@@ -49,13 +57,22 @@ public class Tree_Resource : Resource, IClickable
             spawn_HpImage.fillAmount = treeHP / 100f;
     }
 
+    // TODO: Create a reference for assigned charactere for a specific tree.
+    // parang ipapasa ang game object sa condition na i ccheck ang assigned object na mag cchop sa tree.
+    // GOODLUCK!!!
     private void OnTriggerEnter(Collider other)
     {
-        other.gameObject.TryGetComponent<AI_Controller>(out aI_Controller);
-        if (aI_Controller != null && aI_Controller.isGatherable)
+        if (gathererAssigned == other.gameObject && gathererAssigned.GetComponent<AI_Controller>().resourceToGather == gameObject)
         {
-            SpawnHpBar(labelHeight);
-            aI_Controller.StopNavmesh(true);
+            Debug.Log($"Gatherer assigned to tree named: {gameObject.name}\nAssigned gatherer is: {gathererAssigned.name} and {other.gameObject}");
+
+            if (gathererAssigned.TryGetComponent<AI_Controller>(out aI_Controller))
+            {
+                SpawnHpBar(labelHeight);
+                aI_Controller.StopNavmesh(true);
+            }
+            else Debug.Log("Im called from On trigger enter on Tree Script! Not gathering state!"); ;
         }
     }
+    public override void SetGathererAssigned(GameObject gatherer) => gathererAssigned = gatherer;
 }

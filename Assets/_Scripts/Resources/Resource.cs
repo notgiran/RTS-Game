@@ -11,10 +11,12 @@ public abstract class Resource : MonoBehaviour
     protected GameObject spawn_HpBar;
     protected Image spawn_HpImage;
     [SerializeField] GameObject prefab_HpBar;
+    protected GameObject GathererAssigned { get; set; }
 
     public abstract ResourceType GetResourceType(); // method to define resource type
     public abstract void Collect();
     public abstract void Damage(float damage);
+
 
     protected virtual void SpawnHpBar(float hpBar_height = 5f)
     {
@@ -24,16 +26,11 @@ public abstract class Resource : MonoBehaviour
         spawn_HpImage = spawn_HpBar.transform.GetChild(0).gameObject.GetComponent<Image>();
     }
 
+    public virtual void SetGathererAssigned(GameObject gameObject) => GathererAssigned = gameObject;
+
     protected virtual void DestroyHpBar() => Destroy(spawn_HpBar);
 
-    public virtual void OnHover()
-    {
-        //cursor
-        Camera_Drag.Instance.OnHover(GetResourceType());
-    }
+    public virtual void OnHover() => CursorHandler.Instance.OnHover(GetResourceType());
 
-    public virtual void OnHoverExit()
-    {
-        Camera_Drag.Instance.OnCursorHoverExit();
-    }
+    public virtual void OnHoverExit() => CursorHandler.Instance.DefaultCursor();
 }

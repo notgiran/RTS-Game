@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -23,26 +22,36 @@ public class AI_Controller : MonoBehaviour
     [SerializeField] float labelHeight;
     [SerializeField] bool movePatrol;
     [SerializeField] TMP_Text activityLabelText;
-    public GameObject activityLabel;
+    [SerializeField] GameObject activityLabel;
 
     [Header("Keybinds Config")]
     [SerializeField] KeyCode patrolKey = KeyCode.T;
     [SerializeField] KeyCode waypointKey = KeyCode.Q;
 
+    [Header("Selection Configs")]
+    [SerializeField] GameObject prefab_selectionCircle;
+    GameObject spawned_selectionCircle;
+
+    // Line Renderer Configs
+    LineRenderer lineRenderer;
+
     // public declarations
     [HideInInspector] public NavMeshAgent navMeshAgent;
     [HideInInspector] public State CurrentState { get; set; }
     [HideInInspector] public bool CanMove { get; set; } = true;
-    [HideInInspector] public bool isGatherable;
 
     //hover
     Transform hover_object;
     RaycastHit raycastHit;  // used in hover
     RaycastHit mouseHit;    // used in movement
 
-    // script references
+    // crowd or ghost selection
+    bool isSelected;
+
+    // references
     Resource resource;
     Resource resource_lastHover;
+    [HideInInspector] public GameObject resourceToGather;
 
     public enum State
     {
@@ -50,25 +59,26 @@ public class AI_Controller : MonoBehaviour
         Gathering
     }
 
-    private void Start() => navMeshAgent = GetComponent<NavMeshAgent>();
+    private void Start()
+    {
+        navMeshAgent = GetComponent<NavMeshAgent>();
+
+        lineRenderer = GetComponent<LineRenderer>();
+        lineRenderer.startWidth = .15f;
+        lineRenderer.endWidth = .15f;
+        lineRenderer.positionCount = 0;
+    }
 
     private void Update()
     {
+        // draws the path using line renderer
+        if (navMeshAgent.hasPath)
+            DrawPath();
+
         Ai_State();
-
-        // Mouse Raycast | Click to move ai
-        if (Input.GetMouseButtonDown(0) && CanMove && navMeshAgent.isActiveAndEnabled)
-        {
-            Ray mouseRay = Camera.main.ScreenPointToRay(Input.mousePosition);
-            if (Physics.Raycast(mouseRay, out mouseHit) && !Input.GetKey(waypointKey))
-            {
-                movePatrol = false;
-                navMeshAgent.SetDestination(mouseHit.point);
-            }
-        }
-
         KeyBindings();
-        CheckMouseClick();
+        CheckMouseHover();
+        SelectionCircleFollow();
 
         // hover object handler
         Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
@@ -89,16 +99,18 @@ public class AI_Controller : MonoBehaviour
         }
     }
 
-    void CheckMouseClick()
+    void CheckMouseHover()
     {
-        if (!mouseHit.collider || Input.GetKey(waypointKey)) return;
+        if (mouseHit.collider == null || Input.GetKey(waypointKey)) return;
 
         if ((mouseHit.collider.CompareTag("Ore") || mouseHit.collider.CompareTag("Tree")) && CurrentState != State.Gathering)
         {
             Debug.Log("A resource is clicked!");
             if (navMeshAgent.isActiveAndEnabled)
                 navMeshAgent.SetDestination(mouseHit.collider.transform.position);
-            isGatherable = true;
+
+            mouseHit.collider.GetComponent<Resource>().SetGathererAssigned(gameObject);
+            resourceToGather = mouseHit.collider.gameObject;
         }
     }
 
@@ -107,13 +119,35 @@ public class AI_Controller : MonoBehaviour
 
     void KeyBindings()
     {
-        if (Input.GetKeyDown(patrolKey))
-            movePatrol = !movePatrol;
+        // Mouse Raycast | Click to move ai
+        if (Input.GetMouseButtonDown(1) && CanMove && navMeshAgent.isActiveAndEnabled && isSelected)
+        {
+            Ray mouseRay = Camera.main.ScreenPointToRay(Input.mousePosition);
+            if (Physics.Raycast(mouseRay, out mouseHit) && !Input.GetKey(waypointKey))
+            {
+                movePatrol = false;
+                navMeshAgent.SetDestination(mouseHit.point);
+                DeselectCharacter();
+            }
+        }
 
-        if (Input.GetKey(waypointKey) && Input.GetMouseButtonDown(0))
+        if (Input.GetKeyDown(patrolKey) && isSelected)
+        {
+            movePatrol = !movePatrol;
+            DeselectCharacter();
+        }
+
+        // waypoint cursor change
+        if (Input.GetKey(waypointKey) && isSelected)
+            CursorHandler.Instance.WaypointCursor();
+        else
+            CursorHandler.Instance.DefaultCursor();
+
+        // waypoint keybinds
+        if (Input.GetKey(waypointKey) && Input.GetMouseButtonDown(0) && isSelected)
             SpawnWaypoint();
 
-        if (Input.GetKey(waypointKey) && Input.GetMouseButtonDown(1))
+        if (Input.GetKey(waypointKey) && Input.GetMouseButtonDown(1) && isSelected)
             UndoPlacement();
     }
 
@@ -129,7 +163,7 @@ public class AI_Controller : MonoBehaviour
         switch (CurrentState)
         {
             case State.Gathering:
-                Mining();
+                Gathering();
                 break;
             case State.Patrol:
                 Patroling();
@@ -144,16 +178,16 @@ public class AI_Controller : MonoBehaviour
         activityLabel.SetActive(false);
         Debug.Log("AI on Patrol!");
 
-        if (navMeshAgent.remainingDistance <= navMeshAgent.stoppingDistance && movePatrol)
+        if (movePatrol && navMeshAgent.isActiveAndEnabled && navMeshAgent.remainingDistance <= navMeshAgent.stoppingDistance)
             WaypointMove();
     }
 
-    void Mining()
+    void Gathering()
     {
-        activityLabel.SetActive(true);
         Vector3 playerPos = transform.position + new Vector3(-1, 0, -1.5f);
         playerPos.y = labelHeight;
         activityLabel.transform.position = playerPos;
+        activityLabel.SetActive(true);
     }
     #endregion
 
@@ -164,7 +198,7 @@ public class AI_Controller : MonoBehaviour
         {
             max_waypointSpawn--;
             Debug.Log("Spawn Waypoint!");
-            spawned_waypoint = Instantiate(prefab_waypoint, mouseHit.point, Quaternion.identity);
+            spawned_waypoint = Instantiate(prefab_waypoint, raycastHit.point, Quaternion.identity);
             waypointCollection.Add(spawned_waypoint);
         }
     }
@@ -192,14 +226,57 @@ public class AI_Controller : MonoBehaviour
         }
         catch (System.Exception)
         {
-            navMeshAgent.SetDestination(waypointCollection[0].transform.position);
+            navMeshAgent.SetDestination(waypointCollection[^1].transform.position);
+            currentWaypointIndex = 0;
         }
+    }
+    #endregion
+
+    #region Draw Path
+    void DrawPath()
+    {
+        lineRenderer.positionCount = navMeshAgent.path.corners.Length;
+        lineRenderer.SetPosition(0, transform.position);
+        if (navMeshAgent.path.corners.Length < 2) return;
+        for (int i = 0; i < navMeshAgent.path.corners.Length; i++)
+        {
+            Vector3 pointPos = new(navMeshAgent.path.corners[i].x, navMeshAgent.path.corners[i].y + 1.5f, navMeshAgent.path.corners[i].z);
+            lineRenderer.SetPosition(i, pointPos);
+        }
+    }
+
+    public void DeletePath()
+    {
+        lineRenderer.positionCount = 0;
+    }
+    #endregion
+
+    #region Selection
+    public void DeselectCharacter()
+    {
+        isSelected = false;
+        Destroy(spawned_selectionCircle);
+    }
+
+    void SelectionCircleFollow()
+    {
+        if (spawned_selectionCircle != null)
+            spawned_selectionCircle.transform.position = transform.position;
+    }
+
+    private void OnMouseDown()
+    {
+        if (Selection_Manager.Instance.currentSelectedCharacter != this && Selection_Manager.Instance.currentSelectedCharacter != null)
+            Selection_Manager.Instance.DeselectCharacter();
+        isSelected = true;
+        Selection_Manager.Instance.SelectCharacter(gameObject);
+        spawned_selectionCircle = Instantiate(prefab_selectionCircle, transform.position, Quaternion.identity);
     }
     #endregion
 
     private void OnTriggerEnter(Collider other)
     {
-        if ((other.gameObject.CompareTag("Ore") || other.gameObject.CompareTag("Tree")) && isGatherable)
+        if ((other.gameObject.CompareTag("Ore") || other.gameObject.CompareTag("Tree")) && other.gameObject == resourceToGather)
         {
             CurrentState = State.Gathering;
             InteractWithObject(other.gameObject);

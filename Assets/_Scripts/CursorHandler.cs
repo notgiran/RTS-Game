@@ -2,16 +2,17 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Camera_Drag : MonoBehaviour
+public class CursorHandler : MonoBehaviour
 {
     [Header("Cursor Configs")]
-    [SerializeField] Texture2D cursorArrow;
-    [SerializeField] Texture2D cursorPickaxe;
-    [SerializeField] Texture2D cursorAxe;
+    [SerializeField] Texture2D cursor_Arrow;
+    [SerializeField] Texture2D cursor_Pickaxe;
+    [SerializeField] Texture2D cursor_Axe;
+    [SerializeField] Texture2D cursor_Waypoint;
 
-    public static Camera_Drag Instance;
+    public static CursorHandler Instance;
 
-    private void Awake()
+    void Awake()
     {
         if (Instance != null && Instance != this)
             Destroy(gameObject);
@@ -22,21 +23,24 @@ public class Camera_Drag : MonoBehaviour
         }
     }
 
-    private void Start() => OnCursorHoverExit();
+    void Start() => Cursor.SetCursor(cursor_Arrow, Vector2.zero, CursorMode.ForceSoftware);
+    void SetCursor(Texture2D cursor) => Cursor.SetCursor(cursor, Vector2.zero, CursorMode.ForceSoftware); 
 
     // handles changing cursors
-    public void OnCursorHoverExit() => Cursor.SetCursor(cursorArrow, Vector2.zero, CursorMode.ForceSoftware);
+    public void DefaultCursor() => SetCursor(cursor_Arrow);
     
+    public void WaypointCursor() => SetCursor(cursor_Waypoint);
+
     public void OnHover(ResourceType type)
     {
         Debug.Log($"Im called from Camera Drag! Resource type is: {type}");
         switch (type)
         {
             case ResourceType.Tree:
-                Cursor.SetCursor(cursorAxe, Vector2.zero, CursorMode.ForceSoftware);
+                SetCursor(cursor_Axe);
                 break;
             case ResourceType.Ore:
-                Cursor.SetCursor(cursorPickaxe, Vector2.zero, CursorMode.ForceSoftware);
+                SetCursor(cursor_Pickaxe);
                 break;
         }
     }
