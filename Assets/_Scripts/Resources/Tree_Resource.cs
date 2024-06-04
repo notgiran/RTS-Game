@@ -1,7 +1,4 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Animations;
 
 public class Tree_Resource : Resource, IClickable
 {
@@ -25,7 +22,7 @@ public class Tree_Resource : Resource, IClickable
             lastGatherer.StopNavmesh(false);
             lastGatherer.CanMove = true;
             // lastGatherer.isGatherable = false;
-            lastGatherer.CurrentState = AI_Controller.State.Patrol;
+            lastGatherer.CurrentState = AI_Controller.State.Idle;
 
             HUD_Manager.Instance.WoodCount += Random.Range(3, 8);
             gathererAssigned.GetComponent<AI_Controller>().DeletePath();

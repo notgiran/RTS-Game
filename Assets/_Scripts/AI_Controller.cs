@@ -25,8 +25,10 @@ public class AI_Controller : MonoBehaviour
     [SerializeField] GameObject activityLabel;
 
     [Header("Keybinds Config")]
-    [SerializeField] KeyCode patrolKey = KeyCode.T;
-    [SerializeField] KeyCode waypointKey = KeyCode.Q;
+
+    public readonly KeyCode
+    patrolKey = KeyCode.T,
+    waypointKey = KeyCode.Q;
 
     [Header("Selection Configs")]
     [SerializeField] GameObject prefab_selectionCircle;
@@ -37,7 +39,7 @@ public class AI_Controller : MonoBehaviour
 
     // public declarations
     [HideInInspector] public NavMeshAgent navMeshAgent;
-    [HideInInspector] public State CurrentState { get; set; }
+    [HideInInspector] public State CurrentState { get; set; } = State.Idle;
     [HideInInspector] public bool CanMove { get; set; } = true;
 
     //hover
@@ -49,14 +51,14 @@ public class AI_Controller : MonoBehaviour
     bool isSelected;
 
     // references
-    Resource resource;
-    Resource resource_lastHover;
+    Resource resource, resource_lastHover;
     [HideInInspector] public GameObject resourceToGather;
 
     public enum State
     {
         Patrol,
-        Gathering
+        Gathering,
+        Idle
     }
 
     private void Start()
@@ -80,6 +82,11 @@ public class AI_Controller : MonoBehaviour
         CheckMouseHover();
         SelectionCircleFollow();
 
+        // activity label
+        Vector3 playerPos = transform.position + new Vector3(-1, 0, -1.5f);
+        playerPos.y = labelHeight;
+        activityLabel.transform.position = playerPos;
+
         // hover object handler
         Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
         if (!EventSystem.current.IsPointerOverGameObject() && Physics.Raycast(ray, out raycastHit))
@@ -96,6 +103,14 @@ public class AI_Controller : MonoBehaviour
                     resource_lastHover.OnHoverExit();
                 resource_lastHover = null;
             }
+        }
+
+        if (movePatrol)
+        {
+            CurrentState = State.Patrol;
+            Patroling();
+            if (movePatrol && navMeshAgent.isActiveAndEnabled && navMeshAgent.remainingDistance <= navMeshAgent.stoppingDistance)
+                WaypointMove();
         }
     }
 
@@ -120,14 +135,18 @@ public class AI_Controller : MonoBehaviour
     void KeyBindings()
     {
         // Mouse Raycast | Click to move ai
-        if (Input.GetMouseButtonDown(1) && CanMove && navMeshAgent.isActiveAndEnabled && isSelected)
+        if (Input.GetMouseButtonDown(0) && CanMove && navMeshAgent.isActiveAndEnabled && isSelected)
         {
             Ray mouseRay = Camera.main.ScreenPointToRay(Input.mousePosition);
             if (Physics.Raycast(mouseRay, out mouseHit) && !Input.GetKey(waypointKey))
             {
+                CurrentState = State.Idle;
+
                 movePatrol = false;
                 navMeshAgent.SetDestination(mouseHit.point);
                 DeselectCharacter();
+                if (waypointCollection.Count > 0)
+                    ClearWaypoints();
             }
         }
 
@@ -162,6 +181,9 @@ public class AI_Controller : MonoBehaviour
     {
         switch (CurrentState)
         {
+            case State.Idle:
+                Idling();
+                break;
             case State.Gathering:
                 Gathering();
                 break;
@@ -173,20 +195,22 @@ public class AI_Controller : MonoBehaviour
         }
     }
 
+    void Idling()
+    {
+        activityLabel.SetActive(true);
+        Debug.Log("AI on Idle!");
+        SetActivityLabel("Idling");
+    }
+
     public void Patroling()
     {
-        activityLabel.SetActive(false);
+        activityLabel.SetActive(true);
         Debug.Log("AI on Patrol!");
-
-        if (movePatrol && navMeshAgent.isActiveAndEnabled && navMeshAgent.remainingDistance <= navMeshAgent.stoppingDistance)
-            WaypointMove();
+        SetActivityLabel("Patrolling");
     }
 
     void Gathering()
     {
-        Vector3 playerPos = transform.position + new Vector3(-1, 0, -1.5f);
-        playerPos.y = labelHeight;
-        activityLabel.transform.position = playerPos;
         activityLabel.SetActive(true);
     }
     #endregion
@@ -209,6 +233,15 @@ public class AI_Controller : MonoBehaviour
         waypointCollection?.Remove(currentWaypoint);
         Destroy(currentWaypoint);
         max_waypointSpawn++;
+    }
+
+    void ClearWaypoints()
+    {
+        foreach (GameObject gameObject in waypointCollection)
+            Destroy(gameObject);
+        waypointCollection.Clear();
+        max_waypointSpawn = 4;
+        currentWaypointIndex = 0;
     }
 
     void WaypointMove()
@@ -252,6 +285,12 @@ public class AI_Controller : MonoBehaviour
     #endregion
 
     #region Selection
+    public void SelectCharacter()
+    {
+        isSelected = true;
+        Selection_Manager.Instance.SelectCharacter(gameObject);
+        spawned_selectionCircle = Instantiate(prefab_selectionCircle, transform.position, Quaternion.identity);
+    }
     public void DeselectCharacter()
     {
         isSelected = false;
@@ -264,13 +303,11 @@ public class AI_Controller : MonoBehaviour
             spawned_selectionCircle.transform.position = transform.position;
     }
 
-    private void OnMouseDown()
+    private void OnMouseUp()
     {
         if (Selection_Manager.Instance.currentSelectedCharacter != this && Selection_Manager.Instance.currentSelectedCharacter != null)
             Selection_Manager.Instance.DeselectCharacter();
-        isSelected = true;
-        Selection_Manager.Instance.SelectCharacter(gameObject);
-        spawned_selectionCircle = Instantiate(prefab_selectionCircle, transform.position, Quaternion.identity);
+        SelectCharacter();
     }
     #endregion
 
@@ -285,6 +322,6 @@ public class AI_Controller : MonoBehaviour
 
     private void OnTriggerExit(Collider other)
     {
-        CurrentState = State.Patrol;
+        CurrentState = State.Idle;
     }
 }

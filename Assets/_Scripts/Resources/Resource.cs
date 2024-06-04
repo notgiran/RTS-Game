@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -7,10 +5,10 @@ public enum ResourceType { Ore, Tree } // Enum to define resource types
 
 public abstract class Resource : MonoBehaviour
 {
+    [SerializeField] GameObject prefab_HpBar;
     protected string resourceName; // Name of the resource
     protected GameObject spawn_HpBar;
     protected Image spawn_HpImage;
-    [SerializeField] GameObject prefab_HpBar;
     protected GameObject GathererAssigned { get; set; }
 
     public abstract ResourceType GetResourceType(); // method to define resource type

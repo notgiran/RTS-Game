@@ -1,6 +1,4 @@
-using System.Collections;
 using UnityEngine;
-using UnityEngine.UI;
 
 public class Ore_Resource : Resource, IClickable
 {
@@ -24,7 +22,7 @@ public class Ore_Resource : Resource, IClickable
             aI_Controller.StopNavmesh(false);
             aI_Controller.CanMove = true;
             
-            aI_Controller.CurrentState = AI_Controller.State.Patrol;
+            aI_Controller.CurrentState = AI_Controller.State.Idle;
 
             HUD_Manager.Instance.OreCount += Random.Range(2, 5);
             gathererAssigned.GetComponent<AI_Controller>().DeletePath();

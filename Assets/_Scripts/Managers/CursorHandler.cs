@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 public class CursorHandler : MonoBehaviour
@@ -11,17 +9,6 @@ public class CursorHandler : MonoBehaviour
     [SerializeField] Texture2D cursor_Waypoint;
 
     public static CursorHandler Instance;
-
-    void Awake()
-    {
-        if (Instance != null && Instance != this)
-            Destroy(gameObject);
-        else
-        {
-            Instance = this;
-            DontDestroyOnLoad(this);
-        }
-    }
 
     void Start() => Cursor.SetCursor(cursor_Arrow, Vector2.zero, CursorMode.ForceSoftware);
     void SetCursor(Texture2D cursor) => Cursor.SetCursor(cursor, Vector2.zero, CursorMode.ForceSoftware); 
