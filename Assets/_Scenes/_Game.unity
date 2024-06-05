@@ -923,8 +923,8 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 41099745}
-  - component: {fileID: 41099746}
   - component: {fileID: 41099747}
+  - component: {fileID: 41099746}
   - component: {fileID: 41099748}
   m_Layer: 0
   m_Name: Game Manager
@@ -996,6 +996,7 @@ MonoBehaviour:
   currentSelectedCharacter: {fileID: 0}
   selectBox: {fileID: 2007788280}
   allSelectableObject: []
+  currentlySelectedObjects: []
 --- !u!1001 &50763031
 PrefabInstance:
   m_ObjectHideFlags: 0
